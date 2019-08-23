@@ -24,6 +24,6 @@ $app = require __DIR__.'/../bootstrap/app.php';
 | and wonderful application we have prepared for them.
 |
 */
-
+define('LUMEN_START', microtime(true));
 $app->run();
 

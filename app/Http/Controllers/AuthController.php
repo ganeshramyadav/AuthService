@@ -6,7 +6,14 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\User;
-use Illuminate\Cookie;
+
+use App\Utils\MetadataUtils;
+use StackUtil\Utils\Utility;
+use StackUtil\Utils\DbUtils;
+
+
+
+
 class AuthController extends Controller
 {
     /**
@@ -21,15 +28,40 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => app('hash')->make($request->password, ['rounds' => 12]),
-         ]);
+        try {
+            $tableName = 'users';
+            $metadata = MetadataUtils::CallMetaData($request, $tableName);
+            $object = MetadataUtils::GetObject($metadata,$tableName);
+            $id = Utility::generateId('s',$object['short_name']);
+            $key = Utility::generateKey($object['short_name']);
 
-        $token = Auth::login($user);
+            $user = User::create([
+                'id'        =>  $id,
+                'key'       =>  $key,
+                'name'      =>  $request->name,
+                'email'     =>  $request->email,
+                'password'  =>  app('hash')->make($request->password, ['rounds' => 12]),
+            ]);
 
-        return $this->respondWithToken($token);
+            $token = Auth::login($user);
+            if(isset($user)){
+                $user->token = $token;
+                $getStatusCode = 201;
+                AuthController::history($request, $user, $id, $getStatusCode);
+            }
+            return $this->respondWithToken($token);
+          }
+          catch(\Illuminate\Database\QueryException $ex)
+          {
+            $errorcode = strlen($ex->getCode()) == 3 ? $ex->getCode() : 500;
+            return response()->json(['message'=>'SQL Exception',
+            'error'=>$ex->getMessage(),
+            'status'=>$ex->getCode(),
+            'created_at'=> date("Y/m/d h:i:s"),
+            'method'=>$request->method()
+            ])
+            ->setStatusCode($errorcode);;
+          }
     }
 
     /**
@@ -39,14 +71,17 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-
       // return response()->json(['message' => 'Successfully logged in']);
         $credentials = $request->only(['email', 'password']);
 
         if (! $token = Auth::attempt($credentials)) {
             return response()->json(['error' => 'Unauthorized'], 401);
+        }else{
+            $result = Auth::user();
+            $getStatusCode = 200;
+            $result->token = $token;
+            AuthController::history($request, $result, $result['id'], $getStatusCode);
         }
-
         return $this->respondWithToken($token);
     }
 
@@ -61,8 +96,7 @@ class AuthController extends Controller
     }
 
     public function checkAuth(){
-        return response()->json(['result' => 'Authorized'], 200);
-        // return response()->json(Auth::user());
+        return response()->json(Auth::user());
     }
 
     /**
@@ -113,6 +147,29 @@ class AuthController extends Controller
             'expires_in' => Auth::factory()->getTTL() * 3600
             // 'expires_in' => Auth::factory()->getTTL() * 60
         ]) ;
+    }
+
+    public function history($request, $response = null , $userId, $getStatusCode)
+    {
+        if ( env('API_DATALOGGER', true) ) {
+            $endTime = microtime(true);
+            $tableName = 'history';
+            $dataToLog['user_id'] = $userId;
+            $dataToLog['name'] = 'User_Name';
+            $dataToLog['time'] =  gmdate("F j, Y, g:i a");
+            $dataToLog['duration'] =  number_format($endTime - LUMEN_START, 3);
+            $dataToLog['ipaddress'] =  $request->ip();
+            $dataToLog['url'] =    $request->fullUrl();
+            $dataToLog['method'] = $request->method();
+            $dataToLog['input'] =  $request->getContent();
+            $dataToLog['output'] = $response;
+            $dataToLog['status_code'] = $getStatusCode;
+            $metadata = MetadataUtils::CallMetaData($request, $tableName);
+            $object = MetadataUtils::GetObject($metadata,$tableName);
+            $dataToLog['id'] = Utility::generateId('s',$object['short_name']);
+            $dataToLog['key'] = Utility::generateKey($object['short_name']);
+            $result = DbUtils::generateInsert($tableName,$dataToLog);
+        }
     }
 
 }

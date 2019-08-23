@@ -45,6 +45,35 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Exception $exception)
     {
+        if ($exception
+        instanceof
+        \Illuminate\Database\Eloquent\ModelNotFoundException)
+        {
+
+            return response()->json(['error'=>"Record {".$exception->getIds()[0]."} not found for object {".$exception->getModel()."}",
+            'status'=>404,
+            'created_at'=> date("Y/m/d h:i:s"),
+            'method'=>$request->method()
+            ])
+            ->setStatusCode(404);
+        }else if($exception instanceof QueryException)
+        {
+            return response()->json(['error'=>$exception->getMessage(),
+            'status'=>500,
+            'created_at'=> date("Y/m/d h:i:s"),
+            'method'=>$request->method()
+            ])
+            ->setStatusCode(500);
+        }else{
+            $errorcode = strlen($exception->getCode()) == 3 ? $exception->getCode() : 500;
+            return response()->json(['error'=>$exception->getMessage(),
+            'status'=>$exception->getCode(),
+            'created_at'=> date("Y/m/d h:i:s"),
+            'method'=>$request->method()
+            ])
+            ->setStatusCode($errorcode);
+        }
+
         return parent::render($request, $exception);
     }
 }
