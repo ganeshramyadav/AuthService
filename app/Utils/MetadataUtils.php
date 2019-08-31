@@ -123,12 +123,26 @@ class MetadataUtils {
         return $data;
     }
 
-    public static function CallMetaData($request, $objectName){
+    public static function CallMetaData($response, $objectName){
         $Url = env('METADATA_URL');
         $headers[] = 'Content-Type: application/json';
-        $headers[] = 'Authorization: '.$request->header('Authorization');
         $headers[] = 'skipAuth: true';
         $result = ApiUtils::Request('GET', $Url.'/metadata/v1?key='.$objectName, $headers, null);
+        $metadata = $result->getData(true);
+
+        if(isset($metadata['error'])){
+            throw new Exception($metadata['error'],$metadata['status']);
+        }
+        return $metadata;
+    }
+
+    public static function GetResponsibility($request, $ersponsibilityId)
+    {
+        $Url = env('METADATA_URL');
+        $headers[] = 'Content-Type: application/json';
+        $headers[] = 'skipAuth: true';
+
+        $result = ApiUtils::Request('GET', $Url.'/metadata/v1/responsibility/'.$ersponsibilityId, $headers, null);
         $metadata = $result->getData(true);
 
         if(isset($metadata['error'])){

@@ -53,7 +53,8 @@ class Handler extends ExceptionHandler
             return response()->json(['error'=>"Record {".$exception->getIds()[0]."} not found for object {".$exception->getModel()."}",
             'status'=>404,
             'created_at'=> date("Y/m/d h:i:s"),
-            'method'=>$request->method()
+            'method'=>$request->method(),
+            'stack_trace'=>$exception->getTrace()
             ])
             ->setStatusCode(404);
         }else if($exception instanceof QueryException)
@@ -61,7 +62,8 @@ class Handler extends ExceptionHandler
             return response()->json(['error'=>$exception->getMessage(),
             'status'=>500,
             'created_at'=> date("Y/m/d h:i:s"),
-            'method'=>$request->method()
+            'method'=>$request->method(),
+            'stack_trace'=>$exception->getTrace()
             ])
             ->setStatusCode(500);
         }else{
@@ -69,7 +71,9 @@ class Handler extends ExceptionHandler
             return response()->json(['error'=>$exception->getMessage(),
             'status'=>$exception->getCode(),
             'created_at'=> date("Y/m/d h:i:s"),
-            'method'=>$request->method()
+            'method'=>$request->method(),
+            'stack_trace'=>$exception->getTrace()
+
             ])
             ->setStatusCode($errorcode);
         }
