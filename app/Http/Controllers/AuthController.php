@@ -98,19 +98,25 @@ class AuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }else{
             $result = Auth::user();
+            
             $res = DbUtils::generateQuery('user_responsibility',null, 'all', "user_id=$result->id,active=1");
             $resArray = json_decode($res,true);
             if(!empty($resArray)){
                 $result->responsibility_id = $resArray[0]['responsibility_id'];
                 $customClaims = ['user_info'=> $result];
                 $token = Auth::claims($customClaims)->login($result);
+                $getStatusCode = 200;
+                $result->token = $token;
+                AuthController::history($request, $result, $result->id, $getStatusCode);
+                return $this->respondWithToken($token);
             }else{
-                $token = Auth::login($result);
+                // $token = Auth::login($result);
+                return response()->json([
+                        'status'=>'error',
+                        'message' => '{'.$result->name.'} User is don\'t have any Responsibility',
+                        'created' => gmdate("F j, Y, g:i a")
+                    ],404);
             }
-            $getStatusCode = 200;
-            $result->token = $token;
-            AuthController::history($request, $result, $result->id, $getStatusCode);
-            return $this->respondWithToken($token);
         }
     }
 
@@ -175,7 +181,7 @@ class AuthController extends Controller
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => Auth::factory()->getTTL() * 3600
-        ]) ;
+        ]);
     }
 
     public function history($request, $response = null , $userId, $getStatusCode)
